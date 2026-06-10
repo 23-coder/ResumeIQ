@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Resume {
+  id           String    @id @default(cuid())
+  fileName     String
+  fileContent  String    // Extracted text content from PDF
+  uploadedAt   DateTime  @default(now())
+  analyses     Analysis[]
+}
+
+model JobDescription {
+  id          String    @id @default(cuid())
+  title       String
+  content     String
+  createdAt   DateTime  @default(now())
+  analyses    Analysis[]
+}
+
+model Analysis {
+  id                String          @id @default(cuid())
+  resumeId          String
+  jobDescriptionId  String
+  matchScore        Float           // 0-100 percentage
+  skillMatch        String          // JSON string of matched skills
+  skillGap          String          // JSON string of missing skills
+  keywordAnalysis   String          // JSON string of keyword frequencies
+  suggestions       String          // JSON string of improvement suggestions
+  strengths         String          // JSON string of resume strengths
+  overallVerdict    String          // "Excellent Match", "Good Match", "Fair Match", "Poor Match"
+  createdAt         DateTime        @default(now())
+  resume            Resume          @relation(fields: [resumeId], references: [id])
+  jobDescription    JobDescription  @relation(fields: [jobDescriptionId], references: [id])
+}
