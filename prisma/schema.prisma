@@ -3,14 +3,14 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"     // Changed from "sqlite"
   url      = env("DATABASE_URL")
 }
 
 model Resume {
   id           String    @id @default(cuid())
   fileName     String
-  fileContent  String    // Extracted text content from PDF
+  fileContent  String
   uploadedAt   DateTime  @default(now())
   analyses     Analysis[]
 }
@@ -27,14 +27,14 @@ model Analysis {
   id                String          @id @default(cuid())
   resumeId          String
   jobDescriptionId  String
-  matchScore        Float           // 0-100 percentage
-  skillMatch        String          // JSON string of matched skills
-  skillGap          String          // JSON string of missing skills
-  keywordAnalysis   String          // JSON string of keyword frequencies
-  suggestions       String          // JSON string of improvement suggestions
-  strengths         String          // JSON string of resume strengths
-  overallVerdict    String          // "Excellent Match", "Good Match", "Fair Match", "Poor Match"
+  matchScore        Float
+  skillMatch        String
+  skillGap          String
+  keywordAnalysis   String
+  suggestions       String
+  strengths         String
+  overallVerdict    String
   createdAt         DateTime        @default(now())
-  resume            Resume          @relation(fields: [resumeId], references: [id])
-  jobDescription    JobDescription  @relation(fields: [jobDescriptionId], references: [id])
+  resume            Resume          @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  jobDescription    JobDescription  @relation(fields: [jobDescriptionId], references: [id], onDelete: Cascade)
 }
