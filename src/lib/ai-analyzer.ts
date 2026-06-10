@@ -1,5 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
 export interface AnalysisResult {
   matchScore: number;
   skillMatch: string[];
@@ -10,38 +8,30 @@ export interface AnalysisResult {
   overallVerdict: string;
 }
 
-// Initialize Gemini API with environment variable
-const getGeminiClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
+const getApiKey = () => {
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     throw new Error(
-      'GEMINI_API_KEY is not set. Please add it to your .env file. ' +
-      'Get a free key at: https://aistudio.google.com/app/apikey'
+      'GROQ_API_KEY is not set. Please add it to your .env file. ' +
+      'Get a free key at: https://console.groq.com/keys'
     );
   }
-  return new GoogleGenerativeAI(apiKey);
+  return apiKey;
 };
 
 export async function analyzeResumeAgainstJob(
   resumeText: string,
   jobDescription: string
 ): Promise<AnalysisResult> {
-  const genAI = getGeminiClient();
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
-    generationConfig: {
-      temperature: 0.3,
-      maxOutputTokens: 2000,
-    },
-  });
+  const apiKey = getApiKey();
 
   const prompt = `You are an expert resume screener and career advisor. Analyze the following resume against the job description and provide a detailed assessment.
 
 RESUME:
-${resumeText}
+ ${resumeText}
 
 JOB DESCRIPTION:
-${jobDescription}
+ ${jobDescription}
 
 Provide your analysis as a JSON object with exactly these fields:
 1. "matchScore": A number from 0-100 representing how well the resume matches the job description.
@@ -54,17 +44,34 @@ Provide your analysis as a JSON object with exactly these fields:
 
 Be thorough and specific. Return ONLY the JSON object, no markdown or explanation.`;
 
-  const result = await model.generateContent([
-    {
-      role: 'user',
-      parts: [{ text: prompt }],
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
     },
-  ]);
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.3,
+      max_tokens: 2000,
+    }),
+  });
 
-  const response = result.response;
-  const responseText = response.text();
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Groq API error:', response.status, errorText);
+    throw new Error(`AI API error: ${response.status} - ${errorText}`);
+  }
 
-  // Clean up response - remove markdown code blocks if present
+  const data = await response.json();
+  const responseText = data.choices?.[0]?.message?.content || '';
+
   let cleaned = responseText.trim();
   if (cleaned.startsWith('```json')) {
     cleaned = cleaned.slice(7);
@@ -89,7 +96,6 @@ Be thorough and specific. Return ONLY the JSON object, no markdown or explanatio
     };
   } catch {
     console.error('Failed to parse AI response:', cleaned);
-    // Fallback with basic analysis
     return {
       matchScore: 50,
       skillMatch: [],
